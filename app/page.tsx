@@ -25,7 +25,8 @@ export default function Home() {
       try {
         // ต้องแทนที่ 'YOUR_LIFF_ID' ด้วย LIFF ID จริงของคุณ
         // สามารถดูได้จาก LINE Developers Console (ตามรูป image_8afb2d.png)
-        const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2007752233-1LlOZY09"; // ใช้ค่าจาก .env หรือค่า hardcode ชั่วคราว
+        // const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2007752233-1LlOZY09"; // ใช้ค่าจาก .env หรือค่า hardcode ชั่วคราว
+        const liffId = "2007752233-1LlOzY09";
 
         await liff.init({ liffId });
 
