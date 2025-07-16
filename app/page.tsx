@@ -19,67 +19,37 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // useEffect(() => {
-  //   // ฟังก์ชันสำหรับ initialize LIFF และตรวจสอบสถานะ
-  //   const initializeLiff = async () => {
-  //     try {
-  //       // ต้องแทนที่ 'YOUR_LIFF_ID' ด้วย LIFF ID จริงของคุณ
-  //       // สามารถดูได้จาก LINE Developers Console (ตามรูป image_8afb2d.png)
-  //       // const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2007752233-1LlOZY09"; // ใช้ค่าจาก .env หรือค่า hardcode ชั่วคราว
-  //       // const liffId = "2007752233-1LlOzY09";
-  //       const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2007752233-1LlOzY09";
-
-  //       await liff.init({ liffId });
-
-  //       if (!liff.isLoggedIn()) {
-  //         // ถ้ายังไม่ได้ Login ให้ redirect ไปหน้า Login ของ LINE
-  //         liff.login();
-  //       } else {
-  //         // ถ้า Login แล้ว ดึงข้อมูลโปรไฟล์
-  //         const profile = await liff.getProfile();
-  //         setLiffProfile(profile);
-  //       }
-  //     } catch (err) {
-  //       console.error("LIFF initialization failed", err);
-  //       setError("Failed to initialize LIFF or get profile.");
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   };
-
-  //   initializeLiff();
-  // }, []); // [] หมายความว่า useEffect จะรันแค่ครั้งเดียวเมื่อ Component Mount
-
   useEffect(() => {
+    // ฟังก์ชันสำหรับ initialize LIFF และตรวจสอบสถานะ
     const initializeLiff = async () => {
       try {
-        const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
-
-        // **แก้ไขตรงนี้:** ตรวจสอบว่า liffId มีค่าหรือไม่
-        if (!liffId) {
-          // หากไม่มีค่า ให้ throw error หรือ return ออกไป
-          // ซึ่งจะถูกจับโดย catch block ด้านล่าง
-          throw new Error("LIFF ID is not defined. Please set NEXT_PUBLIC_LIFF_ID environment variable.");
-        }
-
-        await liff.init({ liffId }); // ตอนนี้ TypeScript รู้แล้วว่า liffId เป็น string
+        // ต้องแทนที่ 'YOUR_LIFF_ID' ด้วย LIFF ID จริงของคุณ
+        // สามารถดูได้จาก LINE Developers Console (ตามรูป image_8afb2d.png)
+        // const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2007752233-1LlOZY09"; // ใช้ค่าจาก .env หรือค่า hardcode ชั่วคราว
+        const liffId = "2007752233-1LlOzY09";
+  
+        await liff.init({ liffId });
 
         if (!liff.isLoggedIn()) {
+          // ถ้ายังไม่ได้ Login ให้ redirect ไปหน้า Login ของ LINE
           liff.login();
         } else {
+          // ถ้า Login แล้ว ดึงข้อมูลโปรไฟล์
           const profile = await liff.getProfile();
           setLiffProfile(profile);
         }
       } catch (err) {
         console.error("LIFF initialization failed", err);
-        setError(`Failed to initialize LIFF or get profile. Error: ${err instanceof Error ? err.message : String(err)}`);
+        setError("Failed to initialize LIFF or get profile.");
       } finally {
         setIsLoading(false);
       }
     };
 
     initializeLiff();
-  }, []);
+  }, []); // [] หมายความว่า useEffect จะรันแค่ครั้งเดียวเมื่อ Component Mount
+
+  
 
   if (isLoading) {
     return (
