@@ -26,7 +26,8 @@ export default function Home() {
         // ต้องแทนที่ 'YOUR_LIFF_ID' ด้วย LIFF ID จริงของคุณ
         // สามารถดูได้จาก LINE Developers Console (ตามรูป image_8afb2d.png)
         // const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2007752233-1LlOZY09"; // ใช้ค่าจาก .env หรือค่า hardcode ชั่วคราว
-        const liffId = "2007752233-1LlOzY09";
+        // const liffId = "2007752233-1LlOzY09";
+        const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2007752233-1LlOzY09";
 
         await liff.init({ liffId });
 
@@ -75,11 +76,12 @@ export default function Home() {
       {liffProfile && (
         <div className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center gap-4">
           {liffProfile.pictureUrl && (
-            <Image
+            // โค้ดที่แก้ไขแล้ว
+            <img
               src={liffProfile.pictureUrl}
-              alt="Profile Picture"
-              width={50}
-              height={50}
+              width={50} // คุณใช้ width={100} ในคำถามของคุณ แต่ 50 ในโค้ดเก่า ผมใช้ 50 ตามโค้ดเดิมเพื่อคงขนาด
+              height={50} // ควรใส่ height ด้วยเพื่อป้องกัน Layout Shift
+              alt="Profile picture"
               className="rounded-full"
             />
           )}
