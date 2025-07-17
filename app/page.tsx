@@ -3,53 +3,13 @@
 'use client'; // กำหนดให้เป็น Client Component เพราะเราจะใช้ useEffect และ liff SDK
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import liff from "@line/liff"; // นำเข้า LIFF SDK
-
-// สร้าง Interface สำหรับข้อมูลผู้ใช้ LINE
-interface LiffProfile {
-  userId: string;
-  displayName: string;
-  pictureUrl?: string;
-  statusMessage?: string;
-}
+import { useLiff } from '../lib/useLiff';
+import liff from '@line/liff';
 
 export default function Home() {
-  const [liffProfile, setLiffProfile] = useState<LiffProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // ฟังก์ชันสำหรับ initialize LIFF และตรวจสอบสถานะ
-    const initializeLiff = async () => {
-      try {
-        // ต้องแทนที่ 'YOUR_LIFF_ID' ด้วย LIFF ID จริงของคุณ
-        // สามารถดูได้จาก LINE Developers Console (ตามรูป image_8afb2d.png)
-        // const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2007752233-1LlOZY09"; // ใช้ค่าจาก .env หรือค่า hardcode ชั่วคราว
-        const liffId = "2007752233-1LlOzY09";
   
-        await liff.init({ liffId });
-
-        if (!liff.isLoggedIn()) {
-          // ถ้ายังไม่ได้ Login ให้ redirect ไปหน้า Login ของ LINE
-          liff.login();
-        } else {
-          // ถ้า Login แล้ว ดึงข้อมูลโปรไฟล์
-          const profile = await liff.getProfile();
-          setLiffProfile(profile);
-        }
-      } catch (err) {
-        console.error("LIFF initialization failed", err);
-        setError("Failed to initialize LIFF or get profile.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeLiff();
-  }, []); // [] หมายความว่า useEffect จะรันแค่ครั้งเดียวเมื่อ Component Mount
-
-  
+  // เรียกใช้ Custom Hook เพื่อเข้าถึง State และฟังก์ชัน
+  const { liffProfile, isLoading, error } = useLiff();
 
   if (isLoading) {
     return (
