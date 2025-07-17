@@ -19,7 +19,7 @@ export const useLiff = () => {
   useEffect(() => {
     const initializeLiff = async () => {
       try {
-        const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2007752233-1LlOZY09"; // ใช้ค่าจาก .env หรือค่า hardcode ชั่วคราว
+        const liffId = "2007752233-1LlOzY09"; // ใช้ค่าจาก .env หรือค่า hardcode ชั่วคราว
 
         if (!liffId) {
           throw new Error("LIFF ID is not defined.");
