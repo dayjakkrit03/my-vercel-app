@@ -16,6 +16,7 @@ export const useLiff = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
     const initializeLiff = async () => {
@@ -27,6 +28,11 @@ export const useLiff = () => {
         }
 
         await liff.init({ liffId });
+
+        if (!liff.isInClient()) {
+          setError("โปรดเปิดแอปนี้ผ่าน LINE เท่านั้น");
+          return;
+        }
 
         if (!liff.isLoggedIn()) {
           liff.login();
@@ -48,6 +54,7 @@ export const useLiff = () => {
   // ฟังก์ชันสำหรับสแกน QR Code
   const handleScan = async () => {
     try {
+      setIsScanning(true);
       // ตรวจสอบว่า LIFF รองรับการสแกน QR Code หรือไม่
       if (!liff.scanCode) {
         throw new Error("LIFF scanCode is not available. Please ensure your LIFF app has 'QR code reader' scope enabled.");
@@ -62,9 +69,11 @@ export const useLiff = () => {
     } catch (err) {
       console.error('Scan failed', err);
       setScanResult(`Scan failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsScanning(false);
     }
   };
 
   // คืนค่า State และฟังก์ชันที่จำเป็นออกไป
-  return { liffProfile, isLoading, error, scanResult, handleScan };
+  return { liffProfile, isLoading, error, scanResult, handleScan, isScanning };
 };
