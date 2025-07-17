@@ -9,7 +9,7 @@ import liff from '@line/liff';
 export default function Home() {
   
   // เรียกใช้ Custom Hook เพื่อเข้าถึง State และฟังก์ชัน
-   const { liffProfile, isLoading, error, scanResult, handleScan, isScanning } = useLiff();
+  const { liffProfile, isLoading, error, scanResult, handleScan, isScanning } = useLiff();
 
   if (isLoading) {
     return (

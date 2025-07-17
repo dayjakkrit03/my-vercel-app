@@ -40,6 +40,7 @@ export const useLiff = () => {
           const profile = await liff.getProfile();
           setLiffProfile(profile);
         }
+        
       } catch (err) {
         console.error("LIFF initialization failed", err);
         setError("Failed to initialize LIFF or get profile.");
