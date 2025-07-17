@@ -29,10 +29,10 @@ export const useLiff = () => {
 
         await liff.init({ liffId });
 
-        if (!liff.isInClient()) {
-          setError("โปรดเปิดแอปนี้ผ่าน LINE เท่านั้น");
-          return;
-        }
+        // if (!liff.isInClient()) {
+        //   setError("โปรดเปิดแอปนี้ผ่าน LINE เท่านั้น");
+        //   return;
+        // }
 
         if (!liff.isLoggedIn()) {
           liff.login();
@@ -40,7 +40,7 @@ export const useLiff = () => {
           const profile = await liff.getProfile();
           setLiffProfile(profile);
         }
-        
+
       } catch (err) {
         console.error("LIFF initialization failed", err);
         setError("Failed to initialize LIFF or get profile.");
