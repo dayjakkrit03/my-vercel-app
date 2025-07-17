@@ -9,7 +9,7 @@ import liff from '@line/liff';
 export default function Home() {
   
   // เรียกใช้ Custom Hook เพื่อเข้าถึง State และฟังก์ชัน
-  const { liffProfile, isLoading, error } = useLiff();
+   const { liffProfile, isLoading, error, scanResult, handleScan } = useLiff();
 
   if (isLoading) {
     return (
@@ -62,6 +62,22 @@ export default function Home() {
           </button>
         </div>
       )}
+
+      {/* ส่วนสำหรับ QR Code Scanner */}
+      <div className="mt-8 text-center">
+        <h1 className="text-2xl font-bold mb-4">LINE LIFF QR Code Scanner</h1>
+        <button
+          onClick={handleScan}
+          className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          📷 สแกน QR Code
+        </button>
+        {scanResult && (
+          <p className="mt-4 text-lg">
+            ผลลัพธ์: <span className="font-semibold">{scanResult}</span>
+          </p>
+        )}
+      </div>
 
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
         <Image

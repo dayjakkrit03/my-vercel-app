@@ -15,6 +15,7 @@ export const useLiff = () => {
   const [liffProfile, setLiffProfile] = useState<LiffProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<string | null>(null);
 
   useEffect(() => {
     const initializeLiff = async () => {
@@ -44,6 +45,26 @@ export const useLiff = () => {
     initializeLiff();
   }, []); // useEffect รันแค่ครั้งเดียวเมื่อ Component ที่ใช้ Hook นี้ถูก Mount
 
-  // คืนค่า State และ Error ออกไปเพื่อให้ Component อื่นๆ นำไปใช้ได้
-  return { liffProfile, isLoading, error };
+  // ฟังก์ชันสำหรับสแกน QR Code
+  const handleScan = async () => {
+    try {
+      // ตรวจสอบว่า LIFF รองรับการสแกน QR Code หรือไม่
+      if (!liff.scanCode) {
+        throw new Error("LIFF scanCode is not available. Please ensure your LIFF app has 'QR code reader' scope enabled.");
+      }
+      const result = await liff.scanCode();
+      if (result.value) {
+          setScanResult(result.value);
+      } else {
+          // กรณีที่ผู้ใช้กดยกเลิกการสแกน หรือไม่พบค่า
+          setScanResult("No QR code found or scan cancelled.");
+      }
+    } catch (err) {
+      console.error('Scan failed', err);
+      setScanResult(`Scan failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  // คืนค่า State และฟังก์ชันที่จำเป็นออกไป
+  return { liffProfile, isLoading, error, scanResult, handleScan };
 };
