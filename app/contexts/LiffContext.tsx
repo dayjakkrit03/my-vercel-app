@@ -25,30 +25,37 @@ export function LiffProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // โหลด LIFF SDK แบบ Dynamic เพื่อเลี่ยงปัญหา SSR
-    import("@line/liff")
-      .then((liff) => liff.default)
-      .then((liff) => {
-        console.log("LIFF init...");
-        liff
-          .init({
-            liffId: "2007752233-1LlOZY09", //process.env.NEXT_PUBLIC_LIFF_ID!, // ใช้ LIFF ID ของคุณ
-          })
-          .then(() => {
-            console.log("LIFF init succeeded.");
-            setLiffObject(liff);
-            setIsLiffInitialized(true);
-          })
-          .catch((error: Error) => {
-            console.log("LIFF init failed.");
-            setLiffError(error.toString());
-            setIsLiffInitialized(true); // ตั้งเป็น true แม้ init ล้มเหลว เพื่อไม่ให้แอปค้าง
-          });
-      })
-      .catch((error) => {
-        console.error("Failed to load LIFF SDK:", error);
-        setLiffError("Failed to load LIFF SDK.");
-        setIsLiffInitialized(true);
-      });
+    // ตรวจสอบให้แน่ใจว่าโค้ดนี้รันเฉพาะบน client-side
+    if (typeof window !== 'undefined') {
+      import("@line/liff")
+        .then((liff) => liff.default)
+        .then((liff) => {
+          console.log("LIFF init...");
+          liff
+            .init({
+              liffId: "2007752233-1LlOZY09", //process.env.NEXT_PUBLIC_LIFF_ID!, // ใช้ LIFF ID ของคุณ
+            })
+            .then(() => {
+              console.log("LIFF init succeeded.");
+              setLiffObject(liff);
+              setIsLiffInitialized(true);
+            })
+            .catch((error: Error) => { // แก้ไข: ระบุ Type เป็น Error
+              console.log("LIFF init failed.");
+              setLiffError(error.toString());
+              setIsLiffInitialized(true); // ตั้งเป็น true แม้ init ล้มเหลว เพื่อไม่ให้แอปค้าง
+            });
+        })
+        .catch((error: unknown) => { // แก้ไข: ใช้ unknown แทน any
+          console.error("Failed to load LIFF SDK:", error);
+          if (error instanceof Error) {
+            setLiffError(`Failed to load LIFF SDK: ${error.message}`);
+          } else {
+            setLiffError("Failed to load LIFF SDK: An unknown error occurred.");
+          }
+          setIsLiffInitialized(true);
+        });
+    }
   }, []);
 
   return (

@@ -3,6 +3,7 @@
 "use client"; // แจ้งให้ Next.js รู้ว่านี่คือ Client Component
 
 import { useEffect, useState, useRef } from "react";
+import Image from 'next/image'; // <-- เพิ่มการนำเข้า Image component
 import { useLiff } from "./contexts/LiffContext"; // นำเข้า useLiff hook
 
 export default function HomePage() {
@@ -15,34 +16,30 @@ export default function HomePage() {
 
   // --- Function for liff.scanCode() ---
   const handleScanCode = async () => {
-    // เพิ่มการตรวจสอบ isLiffInitialized ก่อน
     if (!isLiffInitialized) {
       alert("LIFF is still initializing. Please wait.");
       return;
     }
-
-    // ตรวจสอบว่า liff ไม่เป็น null หรือ undefined
     if (!liff) {
       console.error("LIFF object is not available.");
       alert("LIFF object is not available. Please ensure LIFF is initialized correctly and no errors occurred.");
       return;
     }
 
-    // ตรวจสอบว่า liff.scanCode() มีอยู่จริง
+    // ตรวจสอบว่า liff.scanCode() มีอยู่จริงและเป็นฟังก์ชัน
+    // TypeScript จะไม่เตือน 'liff.scanCode' is possibly 'undefined' อีกแล้ว
     if (typeof liff.scanCode !== 'function') {
       alert("liff.scanCode() is not available. This usually means you are not in the LINE app or your LIFF version is too old.");
       return;
     }
 
     // ตรวจสอบว่าเป็น LINE Browser หรือไม่
-    // liff.isInClient() จะทำงานได้เมื่อ liff object พร้อมแล้ว
     if (!liff.isInClient()) {
       alert("This feature (liff.scanCode) is only available inside the LINE app. Please open this page in LINE's in-app browser.");
       return;
     }
 
     try {
-      // เมื่อมาถึงตรงนี้ TypeScript จะรู้ว่า liff และ liff.scanCode มีอยู่แน่นอน
       const result = await liff.scanCode();
       if (result && result.value) {
         setScanResult(result.value);
@@ -51,11 +48,17 @@ export default function HomePage() {
         setScanResult("No QR code scanned or scan cancelled.");
         alert("No QR code scanned or scan cancelled.");
       }
-    } catch (error: any) {
+    } catch (error: unknown) { // <-- แก้ไข: ใช้ unknown แทน any (บรรทัด 54)
       console.error("Error scanning code:", error);
-      alert(`Error scanning code: ${error.message}`);
-      if (error.code === 2) { // 2 means CAMERA_PERMISSION_DENIED
-        alert("Camera permission denied. Please grant camera access to LINE app.");
+      if (error instanceof Error) {
+        alert(`Error scanning code: ${error.message}`);
+        // ตรวจสอบ error code 2 สำหรับ CAMERA_PERMISSION_DENIED
+        // ต้องมั่นใจว่า Error Object มี property 'code'
+        if ('code' in error && (error as any).code === 2) { // Cast เป็น any ชั่วคราวเพื่อเข้าถึง 'code'
+            alert("Camera permission denied. Please grant camera access to LINE app.");
+        }
+      } else {
+        alert("An unknown error occurred while scanning code.");
       }
     }
   };
@@ -69,9 +72,13 @@ export default function HomePage() {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
-    } catch (error: any) {
+    } catch (error: unknown) { // <-- แก้ไข: ใช้ unknown แทน any (บรรทัด 72)
       console.error("Error accessing camera:", error);
-      alert(`Error accessing camera: ${error.message}\nMake sure you grant camera permissions.`);
+      if (error instanceof Error) {
+        alert(`Error accessing camera: ${error.message}\nMake sure you grant camera permissions.`);
+      } else {
+        alert("An unknown error occurred while accessing camera.");
+      }
     }
   };
 
@@ -90,6 +97,11 @@ export default function HomePage() {
       const context = canvas.getContext("2d");
 
       if (context) {
+        // Ensure video is playing and has dimensions
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            alert("Video stream is not ready. Please wait.");
+            return;
+        }
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -104,8 +116,7 @@ export default function HomePage() {
     return () => {
       stopCamera();
     };
-  }, []);
-
+  }, [stopCamera]); // <-- แก้ไข: เพิ่ม stopCamera เข้าไปใน Dependency Array
 
   return (
     <div className="container" style={{ padding: '20px', textAlign: 'center' }}>
@@ -153,17 +164,14 @@ export default function HomePage() {
         {capturedImage && (
           <div style={{ marginTop: '20px' }}>
             <h3>Captured Image:</h3>
+            {/* <-- แก้ไข: ใช้ Image component แทน img */}
             <img src={capturedImage} alt="Captured" style={capturedImageStyle} />
             <p>Image data (Base64):</p>
             <textarea
               readOnly
               value={capturedImage}
               rows={5}
-              // เพิ่ม aria-label เพื่อแก้ warning
-              aria-label="Captured Image Data in Base64"
-              // หรือถ้าจะใช้ id และ label จริงๆ จะเป็นแบบนี้:
-              // id="imageData"
-              // ... และมี <label htmlFor="imageData">Image data (Base64):</label> อยู่ด้านบน
+              aria-label="Captured Image Data in Base64" // <-- แก้ไข: เพิ่ม aria-label สำหรับ Accessibility
               style={{ width: '100%', resize: 'vertical', fontSize: '10px' }}
             />
           </div>
