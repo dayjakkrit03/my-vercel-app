@@ -2,9 +2,18 @@
 // app/page.tsx
 "use client"; // แจ้งให้ Next.js รู้ว่านี่คือ Client Component
 
-import { useEffect, useState, useRef } from "react";
-import Image from 'next/image'; // <-- เพิ่มการนำเข้า Image component
+import { useEffect, useState, useRef, useCallback } from "react"; // <-- เพิ่ม useCallback
+// import Image from 'next/image'; // <-- ลบออก หรือถ้าจะใช้ Image จริงๆ ให้เปลี่ยนแท็กด้านล่างด้วย
 import { useLiff } from "./contexts/LiffContext"; // นำเข้า useLiff hook
+
+// Type Guard สำหรับตรวจสอบ Error object ที่มี 'code' property
+interface LiffErrorWithCode extends Error {
+  code?: number;
+}
+function isLiffErrorWithCode(error: unknown): error is LiffErrorWithCode {
+  return error instanceof Error && typeof (error as LiffErrorWithCode).code === 'number';
+}
+
 
 export default function HomePage() {
   const { liff, liffError, isLiffInitialized } = useLiff();
@@ -13,6 +22,15 @@ export default function HomePage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // ห่อหุ้ม stopCamera ด้วย useCallback
+  const stopCamera = useCallback(() => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+      setCapturedImage(null); // Clear captured image when stopping camera
+    }
+  }, [cameraStream]); // Dependency array ของ useCallback คือสิ่งที่ stopCamera ใช้นอกเหนือจากตัวเอง
 
   // --- Function for liff.scanCode() ---
   const handleScanCode = async () => {
@@ -27,7 +45,6 @@ export default function HomePage() {
     }
 
     // ตรวจสอบว่า liff.scanCode() มีอยู่จริงและเป็นฟังก์ชัน
-    // TypeScript จะไม่เตือน 'liff.scanCode' is possibly 'undefined' อีกแล้ว
     if (typeof liff.scanCode !== 'function') {
       alert("liff.scanCode() is not available. This usually means you are not in the LINE app or your LIFF version is too old.");
       return;
@@ -48,13 +65,12 @@ export default function HomePage() {
         setScanResult("No QR code scanned or scan cancelled.");
         alert("No QR code scanned or scan cancelled.");
       }
-    } catch (error: unknown) { // <-- แก้ไข: ใช้ unknown แทน any (บรรทัด 54)
+    } catch (error: unknown) {
       console.error("Error scanning code:", error);
       if (error instanceof Error) {
         alert(`Error scanning code: ${error.message}`);
-        // ตรวจสอบ error code 2 สำหรับ CAMERA_PERMISSION_DENIED
-        // ต้องมั่นใจว่า Error Object มี property 'code'
-        if ('code' in error && (error as any).code === 2) { // Cast เป็น any ชั่วคราวเพื่อเข้าถึง 'code'
+        // ใช้ Type Guard ที่สร้างขึ้นมาเพื่อตรวจสอบ 'code' property
+        if (isLiffErrorWithCode(error) && error.code === 2) {
             alert("Camera permission denied. Please grant camera access to LINE app.");
         }
       } else {
@@ -72,7 +88,7 @@ export default function HomePage() {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
-    } catch (error: unknown) { // <-- แก้ไข: ใช้ unknown แทน any (บรรทัด 72)
+    } catch (error: unknown) { // แก้ไข: ใช้ unknown แทน any
       console.error("Error accessing camera:", error);
       if (error instanceof Error) {
         alert(`Error accessing camera: ${error.message}\nMake sure you grant camera permissions.`);
@@ -82,19 +98,11 @@ export default function HomePage() {
     }
   };
 
-  const stopCamera = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
-      setCapturedImage(null); // Clear captured image when stopping camera
-    }
-  };
-
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d");
+      const canvas: HTMLCanvasElement = canvasRef.current; // ระบุ Type อย่างชัดเจน
+      const context = canvas.getContext("2d"); // ตอนนี้ context จะรู้ Type ที่ถูกต้องแล้ว
 
       if (context) {
         // Ensure video is playing and has dimensions
@@ -116,7 +124,7 @@ export default function HomePage() {
     return () => {
       stopCamera();
     };
-  }, [stopCamera]); // <-- แก้ไข: เพิ่ม stopCamera เข้าไปใน Dependency Array
+  }, [stopCamera]); // <-- ถูกต้องแล้ว เพราะ stopCamera ห่อด้วย useCallback
 
   return (
     <div className="container" style={{ padding: '20px', textAlign: 'center' }}>
@@ -164,14 +172,14 @@ export default function HomePage() {
         {capturedImage && (
           <div style={{ marginTop: '20px' }}>
             <h3>Captured Image:</h3>
-            {/* <-- แก้ไข: ใช้ Image component แทน img */}
+            {/* คุณตัดสินใจใช้ img ธรรมดา ดังนั้นไม่ต้อง import Image component */}
             <img src={capturedImage} alt="Captured" style={capturedImageStyle} />
             <p>Image data (Base64):</p>
             <textarea
               readOnly
               value={capturedImage}
               rows={5}
-              aria-label="Captured Image Data in Base64" // <-- แก้ไข: เพิ่ม aria-label สำหรับ Accessibility
+              aria-label="Captured Image Data in Base64" // อันนี้ดีแล้ว
               style={{ width: '100%', resize: 'vertical', fontSize: '10px' }}
             />
           </div>
