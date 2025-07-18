@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
+import liff from '@line/liff'
 
 export default function QRScannerPage() {
   const [scannedResult, setScannedResult] = useState<string | null>(null)
@@ -14,18 +15,21 @@ export default function QRScannerPage() {
 
   // ✅ เริ่มต้น LIFF SDK
   useEffect(() => {
-    const initLiff = async () => {
+    const initializeLiff = async () => {
       try {
-        const liff = (await import('@line/liff')).default
-        await liff.init({ liffId: '2007752233-1LlOZY09' }) // 👈 เปลี่ยนเป็น LIFF ID ของคุณ
-        setLiffReady(true)
-      } catch (err) {
-        console.error('LIFF init failed:', err)
+        await liff.init({ liffId: '2007752233-1LlOzY09' }) // ← ใส่ LIFF ID จริง
+        console.log('LIFF initialized')
+
+        if (!liff.isInClient()) {
+          alert('กรุณาเปิดจากแอป LINE')
+        }
+      } catch (err : unknown) {
+        console.error('LIFF init error', err)
         setError('ไม่สามารถโหลด LIFF ได้')
       }
     }
 
-    initLiff()
+    initializeLiff()
 
     return () => {
       stopScan()
@@ -40,23 +44,17 @@ export default function QRScannerPage() {
         setScannedResult(decodedText)
         stopScan()
 
-        // ✅ ส่งข้อความเข้า LINE Chat
         try {
-          const liff = (await import('@line/liff')).default
-          if (liff.isInClient()) {
-            await liff.sendMessages([
-              {
-                type: 'text',
-                text: `📦 คุณสแกนได้: ${decodedText}`,
-              },
-            ])
-            await liff.closeWindow()
-          } else {
-            alert(`ผลลัพธ์: ${decodedText} (LIFF ไม่ได้เปิดใน LINE)`)
-          }
+          await liff.sendMessages([
+            {
+              type: 'text',
+              text: `คุณสแกนพบข้อความ: ${decodedText}`
+            }
+          ])
+          console.log('✅ ส่งข้อความเข้า LINE สำเร็จ')
         } catch (err : unknown) {
-          console.error('ส่งข้อความไม่สำเร็จ:', err)
-          alert('❌ ไม่สามารถส่งข้อความเข้า LINE ได้')
+          console.error('❌ ส่งข้อความเข้า LINE ไม่สำเร็จ:', err)
+          setError('ส่งข้อความเข้า LINE ไม่สำเร็จ')
         }
       }
 
