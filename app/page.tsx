@@ -1,159 +1,4 @@
-// v.1.1.7 tack photo and scanqrcode =======================================================================================
-// app/page.tsx
-// 'use client'
-
-// import { useEffect, useRef, useState } from 'react'
-// import { Html5Qrcode } from 'html5-qrcode'
-
-// export default function CameraAndQRPage() {
-//   const videoRef = useRef<HTMLVideoElement>(null)
-//   const canvasRef = useRef<HTMLCanvasElement>(null)
-//   const [photo, setPhoto] = useState<string | null>(null)
-//   const [qrResult, setQrResult] = useState<string | null>(null)
-//   const [mode, setMode] = useState<'photo' | 'qr'>('photo')
-//   const scannerRef = useRef<Html5Qrcode | null>(null)
-//   const qrRegionId = 'qr-reader'
-
-//   // ========== 📸 MODE: ถ่ายรูป ==========
-//   useEffect(() => {
-//     if (mode === 'photo') {
-//       navigator.mediaDevices.getUserMedia({ video: true })
-//         .then((stream) => {
-//           if (videoRef.current) {
-//             videoRef.current.srcObject = stream
-//           }
-//         })
-//         .catch((err) => {
-//           console.error('Camera access error:', err)
-//         })
-
-//       return () => {
-//         // ปิดกล้องเมื่อเปลี่ยนโหมด
-//         const stream = videoRef.current?.srcObject as MediaStream
-//         stream?.getTracks().forEach(track => track.stop())
-//       }
-//     }
-//   }, [mode])
-
-//   const handleCapture = () => {
-//     const video = videoRef.current
-//     const canvas = canvasRef.current
-//     if (!video || !canvas) return
-
-//     canvas.width = video.videoWidth
-//     canvas.height = video.videoHeight
-//     const ctx = canvas.getContext('2d')
-//     if (ctx) {
-//       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-//       const imageData = canvas.toDataURL('image/png')
-//       setPhoto(imageData)
-//     }
-//   }
-
-//   // ========== 🔍 MODE: สแกน QR ==========
-//   useEffect(() => {
-//     if (mode === 'qr') {
-//       scannerRef.current = new Html5Qrcode(qrRegionId)
-//       scannerRef.current.start(
-//         { facingMode: 'environment' },
-//         { fps: 10, qrbox: 250 },
-//         (decodedText) => {
-//           setQrResult(decodedText)
-//           stopQRScan()
-//         },
-//         (errorMessage) => {
-//           console.warn('QR scan error:', errorMessage)
-//         }
-//       ).catch((err) => {
-//         console.error('QR scanner start failed:', err)
-//       })
-
-//       return () => {
-//         stopQRScan()
-//       }
-//     }
-//   }, [mode])
-
-//   const stopQRScan = () => {
-//     scannerRef.current?.stop().then(() => {
-//       scannerRef.current?.clear()
-//     }).catch((err) => {
-//       console.error('Stop QR failed:', err)
-//     })
-//   }
-
-//   // ========== 🔁 UI ==========
-//   return (
-//     <main style={{ padding: '1rem', textAlign: 'center' }}>
-//       <h1>📷 กล้อง + 🔍 QR Code (Next.js + หน้าเดียว)</h1>
-
-//       <div style={{ marginBottom: '1rem' }}>
-//         <button onClick={() => setMode('photo')} disabled={mode === 'photo'}>
-//           📸 ถ่ายรูป
-//         </button>{' '}
-//         <button onClick={() => setMode('qr')} disabled={mode === 'qr'}>
-//           🔍 สแกน QR
-//         </button>
-//       </div>
-
-//       {mode === 'photo' && (
-//         <>
-//           <video
-//             ref={videoRef}
-//             autoPlay
-//             playsInline
-//             muted
-//             style={{ width: '100%', maxWidth: 400, borderRadius: 8 }}
-//           />
-//           <canvas ref={canvasRef} style={{ display: 'none' }} />
-//           <br />
-//           <button onClick={handleCapture} style={{ marginTop: '1rem' }}>
-//             📸 ถ่ายรูป
-//           </button>
-//           {photo && (
-//             <div style={{ marginTop: '1rem' }}>
-//               <h3>รูปที่ถ่าย:</h3>
-//               <img
-//                 src={photo}
-//                 alt="Captured"
-//                 style={{ width: '100%', maxWidth: 400, borderRadius: 8, border: '2px solid #ccc' }}
-//               />
-//             </div>
-//           )}
-//         </>
-//       )}
-
-//       {mode === 'qr' && (
-//         <>
-//           <div
-//             id={qrRegionId}
-//             style={{
-//               width: '100%',
-//               maxWidth: '400px',
-//               margin: '0 auto',
-//               padding: '1rem',
-//               border: '1px solid #ccc',
-//               borderRadius: '8px',
-//             }}
-//           />
-//           {qrResult && (
-//             <div style={{ marginTop: '1rem' }}>
-//               <h3>✅ สแกนสำเร็จ:</h3>
-//               <p style={{ wordBreak: 'break-word', color: 'green' }}>{qrResult}</p>
-//               <button onClick={() => { setQrResult(null); setMode('qr') }}>
-//                 🔄 สแกนใหม่
-//               </button>
-//             </div>
-//           )}
-//         </>
-//       )}
-//     </main>
-//   )
-// }
-
-// v.1.1.7 =================================================================================================================
-
-// v.1.1.6 scan qr code ====================================================================================================
+// v.1.1.7 scanqrcode and sendmessage =======================================================================================
 // app/page.tsx
 'use client'
 
@@ -163,20 +8,59 @@ import { Html5Qrcode } from 'html5-qrcode'
 export default function QRScannerPage() {
   const [scannedResult, setScannedResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [liffReady, setLiffReady] = useState(false)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const qrRegionId = 'qr-reader'
+
+  // ✅ เริ่มต้น LIFF SDK
+  useEffect(() => {
+    const initLiff = async () => {
+      try {
+        const liff = (await import('@line/liff')).default
+        await liff.init({ liffId: '2007752233-1LlOZY09' }) // 👈 เปลี่ยนเป็น LIFF ID ของคุณ
+        setLiffReady(true)
+      } catch (err) {
+        console.error('LIFF init failed:', err)
+        setError('ไม่สามารถโหลด LIFF ได้')
+      }
+    }
+
+    initLiff()
+
+    return () => {
+      stopScan()
+    }
+  }, [])
 
   const startScan = async () => {
     try {
       const config = { fps: 10, qrbox: 250 }
 
-      const qrCodeSuccessCallback = (decodedText: string) => {
+      const qrCodeSuccessCallback = async (decodedText: string) => {
         setScannedResult(decodedText)
         stopScan()
+
+        // ✅ ส่งข้อความเข้า LINE Chat
+        try {
+          const liff = (await import('@line/liff')).default
+          if (liff.isInClient()) {
+            await liff.sendMessages([
+              {
+                type: 'text',
+                text: `📦 คุณสแกนได้: ${decodedText}`,
+              },
+            ])
+            await liff.closeWindow()
+          } else {
+            alert(`ผลลัพธ์: ${decodedText} (LIFF ไม่ได้เปิดใน LINE)`)
+          }
+        } catch (err : unknown) {
+          console.error('ส่งข้อความไม่สำเร็จ:', err)
+          alert('❌ ไม่สามารถส่งข้อความเข้า LINE ได้')
+        }
       }
 
       const qrCodeErrorCallback = (errorMessage: string) => {
-        // สำหรับ debug: ไม่แนะนำให้ setError ทุกครั้ง
         console.warn('QR Error:', errorMessage)
       }
 
@@ -201,25 +85,13 @@ export default function QRScannerPage() {
     })
   }
 
-  useEffect(() => {
-    return () => {
-      stopScan()
-    }
-  }, [])
-
   return (
     <main style={{ padding: '1rem', textAlign: 'center' }}>
-      <h1>📷 สแกน QR Code (Next.js + html5-qrcode)</h1>
+      <h1>📷 สแกน QR Code + ส่งเข้า LINE Chat</h1>
 
-      {scannedResult ? (
-        <div style={{ marginTop: '1rem' }}>
-          <h2>✅ สแกนสำเร็จ:</h2>
-          <p style={{ wordBreak: 'break-all', color: 'green' }}>{scannedResult}</p>
-          <button onClick={() => { setScannedResult(null); startScan(); }}>
-            🔄 สแกนใหม่
-          </button>
-        </div>
-      ) : (
+      {!liffReady && <p>กำลังโหลด LIFF...</p>}
+
+      {liffReady && !scannedResult && (
         <>
           <div id={qrRegionId} style={{
             width: '100%',
@@ -244,10 +116,115 @@ export default function QRScannerPage() {
         </>
       )}
 
+      {scannedResult && (
+        <div style={{ marginTop: '1rem' }}>
+          <h2>✅ สแกนสำเร็จ:</h2>
+          <p style={{ wordBreak: 'break-all', color: 'green' }}>{scannedResult}</p>
+        </div>
+      )}
+
       {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
     </main>
   )
 }
+
+// v.1.1.7 =================================================================================================================
+
+// v.1.1.6 scan qr code ====================================================================================================
+// app/page.tsx
+// 'use client'
+
+// import { useEffect, useRef, useState } from 'react'
+// import { Html5Qrcode } from 'html5-qrcode'
+
+// export default function QRScannerPage() {
+//   const [scannedResult, setScannedResult] = useState<string | null>(null)
+//   const [error, setError] = useState<string | null>(null)
+//   const scannerRef = useRef<Html5Qrcode | null>(null)
+//   const qrRegionId = 'qr-reader'
+
+//   const startScan = async () => {
+//     try {
+//       const config = { fps: 10, qrbox: 250 }
+
+//       const qrCodeSuccessCallback = (decodedText: string) => {
+//         setScannedResult(decodedText)
+//         stopScan()
+//       }
+
+//       const qrCodeErrorCallback = (errorMessage: string) => {
+//         // สำหรับ debug: ไม่แนะนำให้ setError ทุกครั้ง
+//         console.warn('QR Error:', errorMessage)
+//       }
+
+//       scannerRef.current = new Html5Qrcode(qrRegionId)
+//       await scannerRef.current.start(
+//         { facingMode: 'environment' },
+//         config,
+//         qrCodeSuccessCallback,
+//         qrCodeErrorCallback
+//       )
+//     } catch (err: unknown) {
+//       console.error(err)
+//       setError('ไม่สามารถเปิดกล้องได้ หรือไม่พบกล้องในอุปกรณ์')
+//     }
+//   }
+
+//   const stopScan = () => {
+//     scannerRef.current?.stop().then(() => {
+//       scannerRef.current?.clear()
+//     }).catch((err) => {
+//       console.error('หยุดกล้องล้มเหลว', err)
+//     })
+//   }
+
+//   useEffect(() => {
+//     return () => {
+//       stopScan()
+//     }
+//   }, [])
+
+//   return (
+//     <main style={{ padding: '1rem', textAlign: 'center' }}>
+//       <h1>📷 สแกน QR Code (Next.js + html5-qrcode)</h1>
+
+//       {scannedResult ? (
+//         <div style={{ marginTop: '1rem' }}>
+//           <h2>✅ สแกนสำเร็จ:</h2>
+//           <p style={{ wordBreak: 'break-all', color: 'green' }}>{scannedResult}</p>
+//           <button onClick={() => { setScannedResult(null); startScan(); }}>
+//             🔄 สแกนใหม่
+//           </button>
+//         </div>
+//       ) : (
+//         <>
+//           <div id={qrRegionId} style={{
+//             width: '100%',
+//             maxWidth: '400px',
+//             margin: '0 auto',
+//             padding: '1rem',
+//             border: '1px solid #ccc',
+//             borderRadius: '8px'
+//           }} />
+//           <button onClick={startScan} style={{
+//             marginTop: '1rem',
+//             padding: '0.5rem 1.5rem',
+//             fontSize: '1.1rem',
+//             borderRadius: '8px',
+//             backgroundColor: '#00B900',
+//             color: 'white',
+//             border: 'none',
+//             cursor: 'pointer'
+//           }}>
+//             ▶️ เริ่มสแกน
+//           </button>
+//         </>
+//       )}
+
+//       {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
+//     </main>
+//   )
+// }
 
 // v.1.1.6 scan qr code ====================================================================================================
 
