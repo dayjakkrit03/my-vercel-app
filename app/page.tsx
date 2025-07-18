@@ -1,88 +1,295 @@
-// v.1.1.3 ======================================================================
+// v.1.1.4 ======================================================================
 // app/page.tsx
-'use client';
+"use client"; // แจ้งให้ Next.js รู้ว่านี่คือ Client Component
 
-import Image from "next/image";
-import { useLiff } from '../lib/useLiff';
-// ไม่จำเป็นต้อง import liff ตรงนี้แล้ว เพราะ handleLogout จัดการให้แล้ว
-// import liff from '@line/liff';
+import { useEffect, useState, useRef } from "react";
+import { useLiff } from "./contexts/LiffContext"; // นำเข้า useLiff hook
 
-export default function Home() {
-  const { liffProfile, isLoading, error, scanResult, handleScan, isScanning, handleLogout } = useLiff(); // รับ handleLogout มาด้วย
+export default function HomePage() {
+  const { liff, liffError, isLiffInitialized } = useLiff();
+  const [scanResult, setScanResult] = useState<string | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  if (isLoading) {
-    return (
-      <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-        <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-          <p>Loading LIFF...</p>
-        </main>
-      </div>
-    );
-  }
+  // --- Function for liff.scanCode() ---
+  const handleScanCode = async () => {
+    // เพิ่มการตรวจสอบ isLiffInitialized ก่อน
+    if (!isLiffInitialized) {
+      alert("LIFF is still initializing. Please wait.");
+      return;
+    }
 
-  if (error) {
-    return (
-      <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-        <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-          <p className="text-red-500">Error: {error}</p>
-          <p>Please ensure your LIFF ID is correct and the app is opened within LINE.</p>
-        </main>
-      </div>
-    );
-  }
+    // ตรวจสอบว่า liff ไม่เป็น null หรือ undefined
+    if (!liff) {
+      console.error("LIFF object is not available.");
+      alert("LIFF object is not available. Please ensure LIFF is initialized correctly and no errors occurred.");
+      return;
+    }
+
+    // ตรวจสอบว่า liff.scanCode() มีอยู่จริง
+    if (typeof liff.scanCode !== 'function') {
+      alert("liff.scanCode() is not available. This usually means you are not in the LINE app or your LIFF version is too old.");
+      return;
+    }
+
+    // ตรวจสอบว่าเป็น LINE Browser หรือไม่
+    // liff.isInClient() จะทำงานได้เมื่อ liff object พร้อมแล้ว
+    if (!liff.isInClient()) {
+      alert("This feature (liff.scanCode) is only available inside the LINE app. Please open this page in LINE's in-app browser.");
+      return;
+    }
+
+    try {
+      // เมื่อมาถึงตรงนี้ TypeScript จะรู้ว่า liff และ liff.scanCode มีอยู่แน่นอน
+      const result = await liff.scanCode();
+      if (result && result.value) {
+        setScanResult(result.value);
+        alert(`Scan Result: ${result.value}`);
+      } else {
+        setScanResult("No QR code scanned or scan cancelled.");
+        alert("No QR code scanned or scan cancelled.");
+      }
+    } catch (error: any) {
+      console.error("Error scanning code:", error);
+      alert(`Error scanning code: ${error.message}`);
+      if (error.code === 2) { // 2 means CAMERA_PERMISSION_DENIED
+        alert("Camera permission denied. Please grant camera access to LINE app.");
+      }
+    }
+  };
+
+  // --- Functions for navigator.mediaDevices.getUserMedia() ---
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (error: any) {
+      console.error("Error accessing camera:", error);
+      alert(`Error accessing camera: ${error.message}\nMake sure you grant camera permissions.`);
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+      setCapturedImage(null); // Clear captured image when stopping camera
+    }
+  };
+
+  const captureImage = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
+
+      if (context) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL("image/png");
+        setCapturedImage(imageData);
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Clean up camera stream when component unmounts
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
 
   return (
-    <div className="font-sans grid grid-rows-[auto_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      {liffProfile && (
-        <div className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center gap-4">
-          {liffProfile.pictureUrl && (
-            <img
-              src={liffProfile.pictureUrl}
-              width={50}
-              height={50}
-              alt="Profile picture"
-              className="rounded-full"
-            />
-          )}
-          <div>
-            <p className="text-lg font-bold">ชื่อ: {liffProfile.displayName}</p>
-            <p className="text-sm text-gray-600 dark:text-gray-300">LINE ID: {liffProfile.userId}</p>
-            {liffProfile.statusMessage && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">Status: {liffProfile.statusMessage}</p>
-            )}
-          </div>
-          <button
-            onClick={handleLogout} // <--- เปลี่ยนมาเรียก handleLogout ที่ได้มาจาก Hook
-            className="ml-auto bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full text-sm"
-          >
-            Logout
+    <div className="container" style={{ padding: '20px', textAlign: 'center' }}>
+      <h1>LIFF Camera Example (Next.js App Router & TypeScript)</h1>
+
+      {!isLiffInitialized && <p>Loading LIFF...</p>}
+      {isLiffInitialized && liffError && (
+        <p style={{ color: "red" }}>
+          LIFF initialization failed: <code>{liffError}</code>
+        </p>
+      )}
+
+      {isLiffInitialized && !liffError && (
+        <div style={{ marginBottom: '30px' }}>
+          <h2>1. Scan QR Code (using `liff.scanCode()`)</h2>
+          <p>This only works inside the LINE app (LIFF v2.9.0+).</p>
+          <button onClick={handleScanCode} style={buttonStyle}>
+            Scan QR Code
           </button>
+          {scanResult && <p><strong>Scan Result:</strong> {scanResult}</p>}
         </div>
       )}
 
-      <div className="mt-8 text-center">
-        <h1 className="text-2xl font-bold mb-4">LINE LIFF QR Code Scanner</h1>
-        <button
-          onClick={handleScan}
-          className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-        >
-          📷 สแกน QR Code
-        </button>
-
-        {isScanning && (
-          <p className="mt-2 text-gray-500">กำลังเปิดกล้อง...</p>
+      <div style={{ marginBottom: '30px' }}>
+        <h2>2. Access Camera Directly (using `navigator.mediaDevices.getUserMedia()`)</h2>
+        <p>This works in any modern browser, including LIFF Browser.</p>
+        {!cameraStream ? (
+          <button onClick={startCamera} style={buttonStyle}>
+            Start Camera
+          </button>
+        ) : (
+          <div>
+            <video ref={videoRef} style={videoStyle} autoPlay playsInline muted></video>
+            <div style={{ marginTop: '10px' }}>
+              <button onClick={captureImage} style={buttonStyle}>
+                Capture Image
+              </button>
+              <button onClick={stopCamera} style={buttonStyle}>
+                Stop Camera
+              </button>
+            </div>
+          </div>
         )}
 
-        {scanResult && !isScanning && (
-          <p className="mt-4 text-lg">
-            ผลลัพธ์: <span className="font-semibold">{scanResult}</span>
-          </p>
+        {capturedImage && (
+          <div style={{ marginTop: '20px' }}>
+            <h3>Captured Image:</h3>
+            <img src={capturedImage} alt="Captured" style={capturedImageStyle} />
+            <p>Image data (Base64):</p>
+            <textarea
+              readOnly
+              value={capturedImage}
+              rows={5}
+              // เพิ่ม aria-label เพื่อแก้ warning
+              aria-label="Captured Image Data in Base64"
+              // หรือถ้าจะใช้ id และ label จริงๆ จะเป็นแบบนี้:
+              // id="imageData"
+              // ... และมี <label htmlFor="imageData">Image data (Base64):</label> อยู่ด้านบน
+              style={{ width: '100%', resize: 'vertical', fontSize: '10px' }}
+            />
+          </div>
         )}
+        <canvas ref={canvasRef} style={{ display: 'none' }}></canvas> {/* Hidden canvas for image capture */}
       </div>
-
     </div>
   );
 }
+
+const buttonStyle: React.CSSProperties = {
+  padding: '10px 20px',
+  margin: '5px',
+  fontSize: '16px',
+  cursor: 'pointer',
+  borderRadius: '5px',
+  border: '1px solid #007bff',
+  backgroundColor: '#007bff',
+  color: 'white',
+};
+
+const videoStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '400px',
+  height: 'auto',
+  border: '2px solid #ccc',
+  borderRadius: '8px',
+  display: 'block',
+  margin: '0 auto',
+};
+
+const capturedImageStyle: React.CSSProperties = {
+  maxWidth: '100%',
+  height: 'auto',
+  border: '2px solid #28a745',
+  borderRadius: '8px',
+  display: 'block',
+  margin: '0 auto',
+};
+// v.1.1.4 ======================================================================
+
+// v.1.1.3 ======================================================================
+// app/page.tsx
+// 'use client';
+
+// import Image from "next/image";
+// import { useLiff } from '../lib/useLiff';
+// // ไม่จำเป็นต้อง import liff ตรงนี้แล้ว เพราะ handleLogout จัดการให้แล้ว
+// // import liff from '@line/liff';
+
+// export default function Home() {
+//   const { liffProfile, isLoading, error, scanResult, handleScan, isScanning, handleLogout } = useLiff(); // รับ handleLogout มาด้วย
+
+//   if (isLoading) {
+//     return (
+//       <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
+//         <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+//           <p>Loading LIFF...</p>
+//         </main>
+//       </div>
+//     );
+//   }
+
+//   if (error) {
+//     return (
+//       <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
+//         <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+//           <p className="text-red-500">Error: {error}</p>
+//           <p>Please ensure your LIFF ID is correct and the app is opened within LINE.</p>
+//         </main>
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className="font-sans grid grid-rows-[auto_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
+//       {liffProfile && (
+//         <div className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center gap-4">
+//           {liffProfile.pictureUrl && (
+//             <img
+//               src={liffProfile.pictureUrl}
+//               width={50}
+//               height={50}
+//               alt="Profile picture"
+//               className="rounded-full"
+//             />
+//           )}
+//           <div>
+//             <p className="text-lg font-bold">ชื่อ: {liffProfile.displayName}</p>
+//             <p className="text-sm text-gray-600 dark:text-gray-300">LINE ID: {liffProfile.userId}</p>
+//             {liffProfile.statusMessage && (
+//                 <p className="text-xs text-gray-500 dark:text-gray-400">Status: {liffProfile.statusMessage}</p>
+//             )}
+//           </div>
+//           <button
+//             onClick={handleLogout} // <--- เปลี่ยนมาเรียก handleLogout ที่ได้มาจาก Hook
+//             className="ml-auto bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full text-sm"
+//           >
+//             Logout
+//           </button>
+//         </div>
+//       )}
+
+//       <div className="mt-8 text-center">
+//         <h1 className="text-2xl font-bold mb-4">LINE LIFF QR Code Scanner</h1>
+//         <button
+//           onClick={handleScan}
+//           className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+//         >
+//           📷 สแกน QR Code
+//         </button>
+
+//         {isScanning && (
+//           <p className="mt-2 text-gray-500">กำลังเปิดกล้อง...</p>
+//         )}
+
+//         {scanResult && !isScanning && (
+//           <p className="mt-4 text-lg">
+//             ผลลัพธ์: <span className="font-semibold">{scanResult}</span>
+//           </p>
+//         )}
+//       </div>
+
+//     </div>
+//   );
+// }
 // v.1.1.3 ======================================================================
 
 // v.1.1.2 ======================================================================
