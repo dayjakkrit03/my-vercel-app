@@ -32,7 +32,7 @@ export default function QRScannerPage() {
         qrCodeSuccessCallback,
         qrCodeErrorCallback
       )
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err)
       setError('ไม่สามารถเปิดกล้องได้ หรือไม่พบกล้องในอุปกรณ์')
     }
