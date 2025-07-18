@@ -1,224 +1,282 @@
-// v.1.1.4 ======================================================================
+// v.1.1.5 easy camera open ============================================================================
 // app/page.tsx
-"use client"; // แจ้งให้ Next.js รู้ว่านี่คือ Client Component
+'use client';
 
-import { useEffect, useState, useRef, useCallback } from "react"; // <-- เพิ่ม useCallback
-// import Image from 'next/image'; // <-- ลบออก หรือถ้าจะใช้ Image จริงๆ ให้เปลี่ยนแท็กด้านล่างด้วย
-import { useLiff } from "./contexts/LiffContext"; // นำเข้า useLiff hook
+import React, { useEffect, useState } from 'react';
+import type { Liff } from "@line/liff";
 
-// Type Guard สำหรับตรวจสอบ Error object ที่มี 'code' property
-interface LiffErrorWithCode extends Error {
-  code?: number;
-}
-function isLiffErrorWithCode(error: unknown): error is LiffErrorWithCode {
-  return error instanceof Error && typeof (error as LiffErrorWithCode).code === 'number';
+declare global {
+  interface Window {
+    liff: Liff; // Update the type declaration
+  }
 }
 
-
-export default function HomePage() {
-  const { liff, liffError, isLiffInitialized } = useLiff();
-  const [scanResult, setScanResult] = useState<string | null>(null);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // ห่อหุ้ม stopCamera ด้วย useCallback
-  const stopCamera = useCallback(() => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
-      setCapturedImage(null); // Clear captured image when stopping camera
-    }
-  }, [cameraStream]); // Dependency array ของ useCallback คือสิ่งที่ stopCamera ใช้นอกเหนือจากตัวเอง
-
-  // --- Function for liff.scanCode() ---
-  const handleScanCode = async () => {
-    if (!isLiffInitialized) {
-      alert("LIFF is still initializing. Please wait.");
-      return;
-    }
-    if (!liff) {
-      console.error("LIFF object is not available.");
-      alert("LIFF object is not available. Please ensure LIFF is initialized correctly and no errors occurred.");
-      return;
-    }
-
-    // ตรวจสอบว่า liff.scanCode() มีอยู่จริงและเป็นฟังก์ชัน
-    if (typeof liff.scanCode !== 'function') {
-      alert("liff.scanCode() is not available. This usually means you are not in the LINE app or your LIFF version is too old.");
-      return;
-    }
-
-    // ตรวจสอบว่าเป็น LINE Browser หรือไม่
-    if (!liff.isInClient()) {
-      alert("This feature (liff.scanCode) is only available inside the LINE app. Please open this page in LINE's in-app browser.");
-      return;
-    }
-
-    try {
-      const result = await liff.scanCode();
-      if (result && result.value) {
-        setScanResult(result.value);
-        alert(`Scan Result: ${result.value}`);
-      } else {
-        setScanResult("No QR code scanned or scan cancelled.");
-        alert("No QR code scanned or scan cancelled.");
-      }
-    } catch (error: unknown) {
-      console.error("Error scanning code:", error);
-      if (error instanceof Error) {
-        alert(`Error scanning code: ${error.message}`);
-        // ใช้ Type Guard ที่สร้างขึ้นมาเพื่อตรวจสอบ 'code' property
-        if (isLiffErrorWithCode(error) && error.code === 2) {
-            alert("Camera permission denied. Please grant camera access to LINE app.");
-        }
-      } else {
-        alert("An unknown error occurred while scanning code.");
-      }
-    }
-  };
-
-  // --- Functions for navigator.mediaDevices.getUserMedia() ---
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-    } catch (error: unknown) { // แก้ไข: ใช้ unknown แทน any
-      console.error("Error accessing camera:", error);
-      if (error instanceof Error) {
-        alert(`Error accessing camera: ${error.message}\nMake sure you grant camera permissions.`);
-      } else {
-        alert("An unknown error occurred while accessing camera.");
-      }
-    }
-  };
-
-  const captureImage = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas: HTMLCanvasElement = canvasRef.current; // ระบุ Type อย่างชัดเจน
-      const context = canvas.getContext("2d"); // ตอนนี้ context จะรู้ Type ที่ถูกต้องแล้ว
-
-      if (context) {
-        // Ensure video is playing and has dimensions
-        if (video.videoWidth === 0 || video.videoHeight === 0) {
-            alert("Video stream is not ready. Please wait.");
-            return;
-        }
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = canvas.toDataURL("image/png");
-        setCapturedImage(imageData);
-      }
-    }
-  };
+function LiffCameraPage() {
+  const [liffReady, setLiffReady] = useState(false);
 
   useEffect(() => {
-    // Clean up camera stream when component unmounts
-    return () => {
-      stopCamera();
+    const initializeLiff = async () => {
+      try {
+        await window.liff.init({ liffId: '2007752233-1LlOZY09' });
+        setLiffReady(true);
+        if (!window.liff.isLoggedIn()) {
+          window.liff.login();
+        }
+      } catch (error : unknown) {
+        console.error('LIFF initialization failed:', error);
+      }
     };
-  }, [stopCamera]); // <-- ถูกต้องแล้ว เพราะ stopCamera ห่อด้วย useCallback
+
+    initializeLiff();
+  }, []);
+
+  const openCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      console.log('Camera stream:', stream);
+    } catch (error) {
+      console.error('Error opening camera:', error);
+    }
+  };
+
+  if (!liffReady) {
+    return <div>Loading LIFF...</div>;
+  }
 
   return (
-    <div className="container" style={{ padding: '20px', textAlign: 'center' }}>
-      <h1>LIFF Camera Example (Next.js App Router & TypeScript)</h1>
-
-      {!isLiffInitialized && <p>Loading LIFF...</p>}
-      {isLiffInitialized && liffError && (
-        <p style={{ color: "red" }}>
-          LIFF initialization failed: <code>{liffError}</code>
-        </p>
-      )}
-
-      {isLiffInitialized && !liffError && (
-        <div style={{ marginBottom: '30px' }}>
-          <h2>1. Scan QR Code (using `liff.scanCode()`)</h2>
-          <p>This only works inside the LINE app (LIFF v2.9.0+).</p>
-          <button onClick={handleScanCode} style={buttonStyle}>
-            Scan QR Code
-          </button>
-          {scanResult && <p><strong>Scan Result:</strong> {scanResult}</p>}
-        </div>
-      )}
-
-      <div style={{ marginBottom: '30px' }}>
-        <h2>2. Access Camera Directly (using `navigator.mediaDevices.getUserMedia()`)</h2>
-        <p>This works in any modern browser, including LIFF Browser.</p>
-        {!cameraStream ? (
-          <button onClick={startCamera} style={buttonStyle}>
-            Start Camera
-          </button>
-        ) : (
-          <div>
-            <video ref={videoRef} style={videoStyle} autoPlay playsInline muted></video>
-            <div style={{ marginTop: '10px' }}>
-              <button onClick={captureImage} style={buttonStyle}>
-                Capture Image
-              </button>
-              <button onClick={stopCamera} style={buttonStyle}>
-                Stop Camera
-              </button>
-            </div>
-          </div>
-        )}
-
-        {capturedImage && (
-          <div style={{ marginTop: '20px' }}>
-            <h3>Captured Image:</h3>
-            {/* คุณตัดสินใจใช้ img ธรรมดา ดังนั้นไม่ต้อง import Image component */}
-            <img src={capturedImage} alt="Captured" style={capturedImageStyle} />
-            <p>Image data (Base64):</p>
-            <textarea
-              readOnly
-              value={capturedImage}
-              rows={5}
-              aria-label="Captured Image Data in Base64" // อันนี้ดีแล้ว
-              style={{ width: '100%', resize: 'vertical', fontSize: '10px' }}
-            />
-          </div>
-        )}
-        <canvas ref={canvasRef} style={{ display: 'none' }}></canvas> {/* Hidden canvas for image capture */}
-      </div>
+    <div>
+      <h1>LIFF Camera Example</h1>
+      <button onClick={openCamera}>Open Camera</button>
     </div>
   );
 }
 
-const buttonStyle: React.CSSProperties = {
-  padding: '10px 20px',
-  margin: '5px',
-  fontSize: '16px',
-  cursor: 'pointer',
-  borderRadius: '5px',
-  border: '1px solid #007bff',
-  backgroundColor: '#007bff',
-  color: 'white',
-};
+export default LiffCameraPage;
 
-const videoStyle: React.CSSProperties = {
-  width: '100%',
-  maxWidth: '400px',
-  height: 'auto',
-  border: '2px solid #ccc',
-  borderRadius: '8px',
-  display: 'block',
-  margin: '0 auto',
-};
 
-const capturedImageStyle: React.CSSProperties = {
-  maxWidth: '100%',
-  height: 'auto',
-  border: '2px solid #28a745',
-  borderRadius: '8px',
-  display: 'block',
-  margin: '0 auto',
-};
+// v.1.1.5 =============================================================================================
+
+// v.1.1.4 camara open 18-07-2025 ======================================================================
+// app/page.tsx
+// "use client"; // แจ้งให้ Next.js รู้ว่านี่คือ Client Component
+
+// import { useEffect, useState, useRef, useCallback } from "react"; // <-- เพิ่ม useCallback
+// // import Image from 'next/image'; // <-- ลบออก หรือถ้าจะใช้ Image จริงๆ ให้เปลี่ยนแท็กด้านล่างด้วย
+// import { useLiff } from "./contexts/LiffContext"; // นำเข้า useLiff hook
+
+// // Type Guard สำหรับตรวจสอบ Error object ที่มี 'code' property
+// interface LiffErrorWithCode extends Error {
+//   code?: number;
+// }
+// function isLiffErrorWithCode(error: unknown): error is LiffErrorWithCode {
+//   return error instanceof Error && typeof (error as LiffErrorWithCode).code === 'number';
+// }
+
+
+// export default function HomePage() {
+//   const { liff, liffError, isLiffInitialized } = useLiff();
+//   const [scanResult, setScanResult] = useState<string | null>(null);
+//   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+//   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+//   const videoRef = useRef<HTMLVideoElement>(null);
+//   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+//   // ห่อหุ้ม stopCamera ด้วย useCallback
+//   const stopCamera = useCallback(() => {
+//     if (cameraStream) {
+//       cameraStream.getTracks().forEach(track => track.stop());
+//       setCameraStream(null);
+//       setCapturedImage(null); // Clear captured image when stopping camera
+//     }
+//   }, [cameraStream]); // Dependency array ของ useCallback คือสิ่งที่ stopCamera ใช้นอกเหนือจากตัวเอง
+
+//   // --- Function for liff.scanCode() ---
+//   const handleScanCode = async () => {
+//     if (!isLiffInitialized) {
+//       alert("LIFF is still initializing. Please wait.");
+//       return;
+//     }
+//     if (!liff) {
+//       console.error("LIFF object is not available.");
+//       alert("LIFF object is not available. Please ensure LIFF is initialized correctly and no errors occurred.");
+//       return;
+//     }
+
+//     // ตรวจสอบว่า liff.scanCode() มีอยู่จริงและเป็นฟังก์ชัน
+//     if (typeof liff.scanCode !== 'function') {
+//       alert("liff.scanCode() is not available. This usually means you are not in the LINE app or your LIFF version is too old.");
+//       return;
+//     }
+
+//     // ตรวจสอบว่าเป็น LINE Browser หรือไม่
+//     if (!liff.isInClient()) {
+//       alert("This feature (liff.scanCode) is only available inside the LINE app. Please open this page in LINE's in-app browser.");
+//       return;
+//     }
+
+//     try {
+//       const result = await liff.scanCode();
+//       if (result && result.value) {
+//         setScanResult(result.value);
+//         alert(`Scan Result: ${result.value}`);
+//       } else {
+//         setScanResult("No QR code scanned or scan cancelled.");
+//         alert("No QR code scanned or scan cancelled.");
+//       }
+//     } catch (error: unknown) {
+//       console.error("Error scanning code:", error);
+//       if (error instanceof Error) {
+//         alert(`Error scanning code: ${error.message}`);
+//         // ใช้ Type Guard ที่สร้างขึ้นมาเพื่อตรวจสอบ 'code' property
+//         if (isLiffErrorWithCode(error) && error.code === 2) {
+//             alert("Camera permission denied. Please grant camera access to LINE app.");
+//         }
+//       } else {
+//         alert("An unknown error occurred while scanning code.");
+//       }
+//     }
+//   };
+
+//   // --- Functions for navigator.mediaDevices.getUserMedia() ---
+//   const startCamera = async () => {
+//     try {
+//       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+//       setCameraStream(stream);
+//       if (videoRef.current) {
+//         videoRef.current.srcObject = stream;
+//         videoRef.current.play();
+//       }
+//     } catch (error: unknown) { // แก้ไข: ใช้ unknown แทน any
+//       console.error("Error accessing camera:", error);
+//       if (error instanceof Error) {
+//         alert(`Error accessing camera: ${error.message}\nMake sure you grant camera permissions.`);
+//       } else {
+//         alert("An unknown error occurred while accessing camera.");
+//       }
+//     }
+//   };
+
+//   const captureImage = () => {
+//     if (videoRef.current && canvasRef.current) {
+//       const video = videoRef.current;
+//       const canvas: HTMLCanvasElement = canvasRef.current; // ระบุ Type อย่างชัดเจน
+//       const context = canvas.getContext("2d"); // ตอนนี้ context จะรู้ Type ที่ถูกต้องแล้ว
+
+//       if (context) {
+//         // Ensure video is playing and has dimensions
+//         if (video.videoWidth === 0 || video.videoHeight === 0) {
+//             alert("Video stream is not ready. Please wait.");
+//             return;
+//         }
+//         canvas.width = video.videoWidth;
+//         canvas.height = video.videoHeight;
+//         context.drawImage(video, 0, 0, canvas.width, canvas.height);
+//         const imageData = canvas.toDataURL("image/png");
+//         setCapturedImage(imageData);
+//       }
+//     }
+//   };
+
+//   useEffect(() => {
+//     // Clean up camera stream when component unmounts
+//     return () => {
+//       stopCamera();
+//     };
+//   }, [stopCamera]); // <-- ถูกต้องแล้ว เพราะ stopCamera ห่อด้วย useCallback
+
+//   return (
+//     <div className="container" style={{ padding: '20px', textAlign: 'center' }}>
+//       <h1>LIFF Camera Example (Next.js App Router & TypeScript)</h1>
+
+//       {!isLiffInitialized && <p>Loading LIFF...</p>}
+//       {isLiffInitialized && liffError && (
+//         <p style={{ color: "red" }}>
+//           LIFF initialization failed: <code>{liffError}</code>
+//         </p>
+//       )}
+
+//       {isLiffInitialized && !liffError && (
+//         <div style={{ marginBottom: '30px' }}>
+//           <h2>1. Scan QR Code (using `liff.scanCode()`)</h2>
+//           <p>This only works inside the LINE app (LIFF v2.9.0+).</p>
+//           <button onClick={handleScanCode} style={buttonStyle}>
+//             Scan QR Code
+//           </button>
+//           {scanResult && <p><strong>Scan Result:</strong> {scanResult}</p>}
+//         </div>
+//       )}
+
+//       <div style={{ marginBottom: '30px' }}>
+//         <h2>2. Access Camera Directly (using `navigator.mediaDevices.getUserMedia()`)</h2>
+//         <p>This works in any modern browser, including LIFF Browser.</p>
+//         {!cameraStream ? (
+//           <button onClick={startCamera} style={buttonStyle}>
+//             Start Camera
+//           </button>
+//         ) : (
+//           <div>
+//             <video ref={videoRef} style={videoStyle} autoPlay playsInline muted></video>
+//             <div style={{ marginTop: '10px' }}>
+//               <button onClick={captureImage} style={buttonStyle}>
+//                 Capture Image
+//               </button>
+//               <button onClick={stopCamera} style={buttonStyle}>
+//                 Stop Camera
+//               </button>
+//             </div>
+//           </div>
+//         )}
+
+//         {capturedImage && (
+//           <div style={{ marginTop: '20px' }}>
+//             <h3>Captured Image:</h3>
+//             {/* คุณตัดสินใจใช้ img ธรรมดา ดังนั้นไม่ต้อง import Image component */}
+//             <img src={capturedImage} alt="Captured" style={capturedImageStyle} />
+//             <p>Image data (Base64):</p>
+//             <textarea
+//               readOnly
+//               value={capturedImage}
+//               rows={5}
+//               aria-label="Captured Image Data in Base64" // อันนี้ดีแล้ว
+//               style={{ width: '100%', resize: 'vertical', fontSize: '10px' }}
+//             />
+//           </div>
+//         )}
+//         <canvas ref={canvasRef} style={{ display: 'none' }}></canvas> {/* Hidden canvas for image capture */}
+//       </div>
+//     </div>
+//   );
+// }
+
+// const buttonStyle: React.CSSProperties = {
+//   padding: '10px 20px',
+//   margin: '5px',
+//   fontSize: '16px',
+//   cursor: 'pointer',
+//   borderRadius: '5px',
+//   border: '1px solid #007bff',
+//   backgroundColor: '#007bff',
+//   color: 'white',
+// };
+
+// const videoStyle: React.CSSProperties = {
+//   width: '100%',
+//   maxWidth: '400px',
+//   height: 'auto',
+//   border: '2px solid #ccc',
+//   borderRadius: '8px',
+//   display: 'block',
+//   margin: '0 auto',
+// };
+
+// const capturedImageStyle: React.CSSProperties = {
+//   maxWidth: '100%',
+//   height: 'auto',
+//   border: '2px solid #28a745',
+//   borderRadius: '8px',
+//   display: 'block',
+//   margin: '0 auto',
+// };
 // v.1.1.4 ======================================================================
 
 // v.1.1.3 ======================================================================
