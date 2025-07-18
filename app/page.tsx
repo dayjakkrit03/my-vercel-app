@@ -1,58 +1,153 @@
-// v.1.1.5 easy camera open ============================================================================
+// v.1.1.5 =============================================================================================
 // app/page.tsx
-'use client';
+'use client'
 
-import React, { useEffect, useState } from 'react';
-import type { Liff } from "@line/liff";
+import { useEffect, useRef, useState } from 'react'
 
-declare global {
-  interface Window {
-    liff: Liff; // Update the type declaration
-  }
-}
-
-function LiffCameraPage() {
-  const [liffReady, setLiffReady] = useState(false);
+export default function HomePage() {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [photo, setPhoto] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const initializeLiff = async () => {
-      try {
-        await window.liff.init({ liffId: '2007752233-1LlOZY09' });
-        setLiffReady(true);
-        if (!window.liff.isLoggedIn()) {
-          window.liff.login();
+    // เรียกกล้องทันทีเมื่อโหลดหน้า
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
         }
-      } catch (error : unknown) {
-        console.error('LIFF initialization failed:', error);
-      }
-    };
+      })
+      .catch((err) => {
+        console.error('Camera access error:', err)
+        setError('❌ ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตการใช้กล้องในเบราว์เซอร์')
+      })
 
-    initializeLiff();
-  }, []);
-
-  const openCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      console.log('Camera stream:', stream);
-    } catch (error) {
-      console.error('Error opening camera:', error);
+    return () => {
+      // ปิดกล้องเมื่อออกจากหน้า
+      const stream = videoRef.current?.srcObject as MediaStream
+      stream?.getTracks().forEach(track => track.stop())
     }
-  };
+  }, [])
 
-  if (!liffReady) {
-    return <div>Loading LIFF...</div>;
+  const handleCapture = () => {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas) return
+
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const imageData = canvas.toDataURL('image/png')
+      setPhoto(imageData)
+    }
   }
 
   return (
-    <div>
-      <h1>LIFF Camera Example</h1>
-      <button onClick={openCamera}>Open Camera</button>
-    </div>
-  );
+    <main style={{ padding: '1rem', textAlign: 'center' }}>
+      <h1>📷 กล้องถ่ายรูป (Next.js + LIFF)</h1>
+
+      {error ? (
+        <p style={{ color: 'red' }}>{error}</p>
+      ) : (
+        <>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{ width: '100%', maxWidth: 400, borderRadius: 8 }}
+          />
+          <br />
+          <button onClick={handleCapture} style={{
+            marginTop: '1rem',
+            padding: '0.5rem 1.5rem',
+            fontSize: '1.1rem',
+            borderRadius: '8px',
+            backgroundColor: '#00B900',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer'
+          }}>
+            📸 ถ่ายรูป
+          </button>
+        </>
+      )}
+
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+      {photo && (
+        <div style={{ marginTop: '1rem' }}>
+          <h2>📸 รูปที่ถ่าย:</h2>
+          <img
+            src={photo}
+            alt="Captured"
+            style={{ width: '100%', maxWidth: 400, borderRadius: 8, border: '2px solid #ccc' }}
+          />
+        </div>
+      )}
+    </main>
+  )
 }
 
-export default LiffCameraPage;
+// v.1.1.5 =============================================================================================
 
+// v.1.1.5 easy camera open ============================================================================
+// app/page.tsx
+// 'use client';
+
+// import React, { useEffect, useState } from 'react';
+// import type { Liff } from "@line/liff";
+
+// declare global {
+//   interface Window {
+//     liff: Liff; // Update the type declaration
+//   }
+// }
+
+// function LiffCameraPage() {
+//   const [liffReady, setLiffReady] = useState(false);
+
+//   useEffect(() => {
+//     const initializeLiff = async () => {
+//       try {
+//         await window.liff.init({ liffId: '2007752233-1LlOZY09' });
+//         setLiffReady(true);
+//         if (!window.liff.isLoggedIn()) {
+//           window.liff.login();
+//         }
+//       } catch (error : unknown) {
+//         console.error('LIFF initialization failed:', error);
+//       }
+//     };
+
+//     initializeLiff();
+//   }, []);
+
+//   const openCamera = async () => {
+//     try {
+//       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+//       console.log('Camera stream:', stream);
+//     } catch (error) {
+//       console.error('Error opening camera:', error);
+//     }
+//   };
+
+//   if (!liffReady) {
+//     return <div>Loading LIFF...</div>;
+//   }
+
+//   return (
+//     <div>
+//       <h1>LIFF Camera Example</h1>
+//       <button onClick={openCamera}>Open Camera</button>
+//     </div>
+//   );
+// }
+
+// export default LiffCameraPage;
 
 // v.1.1.5 =============================================================================================
 
