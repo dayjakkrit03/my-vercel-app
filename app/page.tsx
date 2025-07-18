@@ -1,171 +1,106 @@
 // v.1.1.7 scanqrcode and sendmessage =======================================================================================
 // app/page.tsx
-'use client'
+'use client'; // กำหนดให้เป็น Client Component เพราะเราจะใช้ useEffect และ liff SDK
 
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { Html5Qrcode } from 'html5-qrcode'
-import liff from '@line/liff'
+// import Image from "next/image";
+import { useEffect, useState } from "react";
+import liff from "@line/liff"; // นำเข้า LIFF SDK
 
-declare global {
-  interface Window {
-    liff: typeof import('@line/liff')
-  }
+// สร้าง Interface สำหรับข้อมูลผู้ใช้ LINE
+interface LiffProfile {
+  userId: string;
+  displayName: string;
+  pictureUrl?: string;
+  statusMessage?: string;
 }
 
-export default function QRScannerPage() {
-  // -------------------------
-  // LIFF Setup (useLiff logic)
-  // -------------------------
-  const [liffProfile, setLiffProfile] = useState<{
-    userId: string
-    displayName: string
-    pictureUrl?: string
-    statusMessage?: string
-  } | null>(null)
-
-  const [liffLoading, setLiffLoading] = useState(true)
-  const [liffError, setLiffError] = useState<string | null>(null)
-
-  const initializeLiff = useCallback(async () => {
-    try {
-      const liffId = '2007752233-1LlOZY09' // 👉 เปลี่ยนตรงนี้เป็น LIFF ID ของคุณ
-      await liff.init({ liffId })
-
-      if (!liff.isLoggedIn()) {
-        liff.login()
-      } else {
-        const profile = await liff.getProfile()
-        setLiffProfile(profile)
-      }
-    } catch (err) {
-      console.error('LIFF init error:', err)
-      setLiffError('❌ ไม่สามารถโหลด LIFF ได้')
-    } finally {
-      setLiffLoading(false)
-    }
-  }, [])
+export default function Home() {
+  const [liffProfile, setLiffProfile] = useState<LiffProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    initializeLiff()
-  }, [initializeLiff])
+    // ฟังก์ชันสำหรับ initialize LIFF และตรวจสอบสถานะ
+    const initializeLiff = async () => {
+      try {
+        // ต้องแทนที่ 'YOUR_LIFF_ID' ด้วย LIFF ID จริงของคุณ
+        // สามารถดูได้จาก LINE Developers Console (ตามรูป image_8afb2d.png)
+        const liffId = "2007752233-1LlOZY09"; // ใช้ค่าจาก .env หรือค่า hardcode ชั่วคราว
 
-  // -------------------------
-  // QR Scanner Setup
-  // -------------------------
-  const [scannedResult, setScannedResult] = useState<string | null>(null)
-  const [scanError, setScanError] = useState<string | null>(null)
-  const scannerRef = useRef<Html5Qrcode | null>(null)
-  const qrRegionId = 'qr-reader'
+        await liff.init({ liffId });
 
-  const startScan = async () => {
-    try {
-      const config = { fps: 10, qrbox: 250 }
-
-      const qrCodeSuccessCallback = (decodedText: string) => {
-        setScannedResult(decodedText)
-        stopScan()
-
-        // ส่งข้อความเข้า LINE chat
-        if (liff.isApiAvailable('shareTargetPicker')) {
-          liff.sendMessages([
-            { type: 'text', text: `✅ คุณสแกน QR แล้ว: ${decodedText}` }
-          ])
+        if (!liff.isLoggedIn()) {
+          // ถ้ายังไม่ได้ Login ให้ redirect ไปหน้า Login ของ LINE
+          liff.login();
+        } else {
+          // ถ้า Login แล้ว ดึงข้อมูลโปรไฟล์
+          const profile = await liff.getProfile();
+          setLiffProfile(profile);
         }
+      } catch (err) {
+        console.error("LIFF initialization failed", err);
+        setError("Failed to initialize LIFF or get profile.");
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      const qrCodeErrorCallback = (errorMessage: string) => {
-        console.warn('QR Error:', errorMessage)
-      }
+    initializeLiff();
+  }, []); // [] หมายความว่า useEffect จะรันแค่ครั้งเดียวเมื่อ Component Mount
 
-      scannerRef.current = new Html5Qrcode(qrRegionId)
-      await scannerRef.current.start(
-        { facingMode: 'environment' },
-        config,
-        qrCodeSuccessCallback,
-        qrCodeErrorCallback
-      )
-    } catch (err: unknown) {
-      console.error(err)
-      setScanError('ไม่สามารถเปิดกล้องได้ หรือไม่พบกล้องในอุปกรณ์')
-    }
+  if (isLoading) {
+    return (
+      <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
+        <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+          <p>Loading LIFF...</p>
+        </main>
+      </div>
+    );
   }
 
-  const stopScan = () => {
-    scannerRef.current?.stop().then(() => {
-      scannerRef.current?.clear()
-    }).catch((err) => {
-      console.error('หยุดกล้องล้มเหลว', err)
-    })
+  if (error) {
+    return (
+      <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
+        <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+          <p className="text-red-500">Error: {error}</p>
+          <p>Please ensure your LIFF ID is correct and the app is opened within LINE.</p>
+        </main>
+      </div>
+    );
   }
-
-  useEffect(() => {
-    return () => {
-      stopScan()
-    }
-  }, [])
-
-  // -------------------------
-  // Render
-  // -------------------------
-  if (liffLoading) return <p>⏳ กำลังโหลด LIFF...</p>
-  if (liffError) return <p style={{ color: 'red' }}>{liffError}</p>
 
   return (
-    <main style={{ padding: '1rem', textAlign: 'center' }}>
-      <h1>📷 สแกน QR Code + LIFF (หน้าเดียว)</h1>
-
+    <div className="font-sans grid grid-rows-[auto_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
       {liffProfile && (
-        <div style={{ marginBottom: '1rem' }}>
-          <p>👤 ยินดีต้อนรับ: {liffProfile.displayName}</p>
+        <div className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center gap-4">
           {liffProfile.pictureUrl && (
-            <img
-              src={liffProfile.pictureUrl}
-              alt="Profile"
-              style={{ width: '100px', borderRadius: '50%' }}
-            />
+           <img
+             src={liffProfile.pictureUrl}
+               width={50}
+               height={50}
+               alt="Profile picture"
+               className="rounded-full"
+             />
           )}
-        </div>
-      )}
-
-      {scannedResult ? (
-        <div style={{ marginTop: '1rem' }}>
-          <h2>✅ สแกนสำเร็จ:</h2>
-          <p style={{ wordBreak: 'break-word', color: 'green' }}>{scannedResult}</p>
-          <button onClick={() => { setScannedResult(null); startScan(); }}>
-            🔄 สแกนใหม่
+          <div>
+            <p className="text-lg font-bold">ชื่อ: {liffProfile.displayName}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">LINE ID: {liffProfile.userId}</p>
+            {liffProfile.statusMessage && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">Status: {liffProfile.statusMessage}</p>
+            )}
+          </div>
+          {/* ปุ่ม Logout (ไม่บังคับ แต่มีไว้ดีกว่า) */}
+          <button
+            onClick={() => liff.logout()}
+            className="ml-auto bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full text-sm"
+          >
+            Logout
           </button>
         </div>
-      ) : (
-        <>
-          <div id={qrRegionId} style={{
-            width: '100%',
-            maxWidth: '400px',
-            margin: '0 auto',
-            padding: '1rem',
-            border: '1px solid #ccc',
-            borderRadius: '8px'
-          }} />
-          <button onClick={startScan} style={{
-            marginTop: '1rem',
-            padding: '0.5rem 1.5rem',
-            fontSize: '1.1rem',
-            borderRadius: '8px',
-            backgroundColor: '#00B900',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer'
-          }}>
-            ▶️ เริ่มสแกน QR
-          </button>
-        </>
       )}
-
-      {scanError && <p style={{ color: 'red', marginTop: '1rem' }}>{scanError}</p>}
-    </main>
-  )
+    </div>
+  );
 }
-
-
 // v.1.1.7 =================================================================================================================
 
 // v.1.1.6 scan qr code ====================================================================================================
