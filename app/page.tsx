@@ -1,67 +1,80 @@
-// v.1.1.5 =============================================================================================
+// v.1.1.6 scan qr code ====================================================================================================
 // app/page.tsx
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Html5Qrcode } from 'html5-qrcode'
 
-export default function HomePage() {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [photo, setPhoto] = useState<string | null>(null)
+export default function QRScannerPage() {
+  const [scannedResult, setScannedResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const scannerRef = useRef<Html5Qrcode | null>(null)
+  const qrRegionId = 'qr-reader'
 
-  useEffect(() => {
-    // เรียกกล้องทันทีเมื่อโหลดหน้า
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then((stream) => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-        }
-      })
-      .catch((err) => {
-        console.error('Camera access error:', err)
-        setError('❌ ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตการใช้กล้องในเบราว์เซอร์')
-      })
+  const startScan = async () => {
+    try {
+      const config = { fps: 10, qrbox: 250 }
 
-    return () => {
-      // ปิดกล้องเมื่อออกจากหน้า
-      const stream = videoRef.current?.srcObject as MediaStream
-      stream?.getTracks().forEach(track => track.stop())
-    }
-  }, [])
+      const qrCodeSuccessCallback = (decodedText: string) => {
+        setScannedResult(decodedText)
+        stopScan()
+      }
 
-  const handleCapture = () => {
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    if (!video || !canvas) return
+      const qrCodeErrorCallback = (errorMessage: string) => {
+        // สำหรับ debug: ไม่แนะนำให้ setError ทุกครั้ง
+        console.warn('QR Error:', errorMessage)
+      }
 
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    const ctx = canvas.getContext('2d')
-    if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      const imageData = canvas.toDataURL('image/png')
-      setPhoto(imageData)
+      scannerRef.current = new Html5Qrcode(qrRegionId)
+      await scannerRef.current.start(
+        { facingMode: 'environment' },
+        config,
+        qrCodeSuccessCallback,
+        qrCodeErrorCallback
+      )
+    } catch (err: any) {
+      console.error(err)
+      setError('ไม่สามารถเปิดกล้องได้ หรือไม่พบกล้องในอุปกรณ์')
     }
   }
 
+  const stopScan = () => {
+    scannerRef.current?.stop().then(() => {
+      scannerRef.current?.clear()
+    }).catch((err) => {
+      console.error('หยุดกล้องล้มเหลว', err)
+    })
+  }
+
+  useEffect(() => {
+    return () => {
+      stopScan()
+    }
+  }, [])
+
   return (
     <main style={{ padding: '1rem', textAlign: 'center' }}>
-      <h1>📷 กล้องถ่ายรูป (Next.js + LIFF)</h1>
+      <h1>📷 สแกน QR Code (Next.js + html5-qrcode)</h1>
 
-      {error ? (
-        <p style={{ color: 'red' }}>{error}</p>
+      {scannedResult ? (
+        <div style={{ marginTop: '1rem' }}>
+          <h2>✅ สแกนสำเร็จ:</h2>
+          <p style={{ wordBreak: 'break-all', color: 'green' }}>{scannedResult}</p>
+          <button onClick={() => { setScannedResult(null); startScan(); }}>
+            🔄 สแกนใหม่
+          </button>
+        </div>
       ) : (
         <>
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            style={{ width: '100%', maxWidth: 400, borderRadius: 8 }}
-          />
-          <br />
-          <button onClick={handleCapture} style={{
+          <div id={qrRegionId} style={{
+            width: '100%',
+            maxWidth: '400px',
+            margin: '0 auto',
+            padding: '1rem',
+            border: '1px solid #ccc',
+            borderRadius: '8px'
+          }} />
+          <button onClick={startScan} style={{
             marginTop: '1rem',
             padding: '0.5rem 1.5rem',
             fontSize: '1.1rem',
@@ -71,26 +84,111 @@ export default function HomePage() {
             border: 'none',
             cursor: 'pointer'
           }}>
-            📸 ถ่ายรูป
+            ▶️ เริ่มสแกน
           </button>
         </>
       )}
 
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-      {photo && (
-        <div style={{ marginTop: '1rem' }}>
-          <h2>📸 รูปที่ถ่าย:</h2>
-          <img
-            src={photo}
-            alt="Captured"
-            style={{ width: '100%', maxWidth: 400, borderRadius: 8, border: '2px solid #ccc' }}
-          />
-        </div>
-      )}
+      {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
     </main>
   )
 }
+
+// v.1.1.6 scan qr code ====================================================================================================
+
+// v.1.1.5 camera tack a photo =============================================================================================
+// app/page.tsx
+// 'use client'
+
+// import { useEffect, useRef, useState } from 'react'
+
+// export default function HomePage() {
+//   const videoRef = useRef<HTMLVideoElement>(null)
+//   const canvasRef = useRef<HTMLCanvasElement>(null)
+//   const [photo, setPhoto] = useState<string | null>(null)
+//   const [error, setError] = useState<string | null>(null)
+
+//   useEffect(() => {
+//     // เรียกกล้องทันทีเมื่อโหลดหน้า
+//     navigator.mediaDevices.getUserMedia({ video: true })
+//       .then((stream) => {
+//         if (videoRef.current) {
+//           videoRef.current.srcObject = stream
+//         }
+//       })
+//       .catch((err) => {
+//         console.error('Camera access error:', err)
+//         setError('❌ ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตการใช้กล้องในเบราว์เซอร์')
+//       })
+
+//     return () => {
+//       // ปิดกล้องเมื่อออกจากหน้า
+//       const stream = videoRef.current?.srcObject as MediaStream
+//       stream?.getTracks().forEach(track => track.stop())
+//     }
+//   }, [])
+
+//   const handleCapture = () => {
+//     const video = videoRef.current
+//     const canvas = canvasRef.current
+//     if (!video || !canvas) return
+
+//     canvas.width = video.videoWidth
+//     canvas.height = video.videoHeight
+//     const ctx = canvas.getContext('2d')
+//     if (ctx) {
+//       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+//       const imageData = canvas.toDataURL('image/png')
+//       setPhoto(imageData)
+//     }
+//   }
+
+//   return (
+//     <main style={{ padding: '1rem', textAlign: 'center' }}>
+//       <h1>📷 กล้องถ่ายรูป (Next.js + LIFF)</h1>
+
+//       {error ? (
+//         <p style={{ color: 'red' }}>{error}</p>
+//       ) : (
+//         <>
+//           <video
+//             ref={videoRef}
+//             autoPlay
+//             playsInline
+//             muted
+//             style={{ width: '100%', maxWidth: 400, borderRadius: 8 }}
+//           />
+//           <br />
+//           <button onClick={handleCapture} style={{
+//             marginTop: '1rem',
+//             padding: '0.5rem 1.5rem',
+//             fontSize: '1.1rem',
+//             borderRadius: '8px',
+//             backgroundColor: '#00B900',
+//             color: 'white',
+//             border: 'none',
+//             cursor: 'pointer'
+//           }}>
+//             📸 ถ่ายรูป
+//           </button>
+//         </>
+//       )}
+
+//       <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+//       {photo && (
+//         <div style={{ marginTop: '1rem' }}>
+//           <h2>📸 รูปที่ถ่าย:</h2>
+//           <img
+//             src={photo}
+//             alt="Captured"
+//             style={{ width: '100%', maxWidth: 400, borderRadius: 8, border: '2px solid #ccc' }}
+//           />
+//         </div>
+//       )}
+//     </main>
+//   )
+// }
 
 // v.1.1.5 =============================================================================================
 
