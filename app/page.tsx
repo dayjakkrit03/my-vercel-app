@@ -1,203 +1,98 @@
-// v.1.1.7 scanqrcode and sendmessage =======================================================================================
-// app/page.tsx
-'use client'; // กำหนดให้เป็น Client Component เพราะเราจะใช้ useEffect และ liff SDK
-
-// import Image from "next/image";
-import { useEffect, useState } from "react";
-import liff from "@line/liff"; // นำเข้า LIFF SDK
-
-// สร้าง Interface สำหรับข้อมูลผู้ใช้ LINE
-interface LiffProfile {
-  userId: string;
-  displayName: string;
-  pictureUrl?: string;
-  statusMessage?: string;
-}
-
-export default function Home() {
-  const [liffProfile, setLiffProfile] = useState<LiffProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // ฟังก์ชันสำหรับ initialize LIFF และตรวจสอบสถานะ
-    const initializeLiff = async () => {
-      try {
-        // ต้องแทนที่ 'YOUR_LIFF_ID' ด้วย LIFF ID จริงของคุณ
-        // สามารถดูได้จาก LINE Developers Console (ตามรูป image_8afb2d.png)
-        const liffId = "2007752233-1LlOZY09"; // ใช้ค่าจาก .env หรือค่า hardcode ชั่วคราว
-
-        await liff.init({ liffId });
-
-        if (!liff.isLoggedIn()) {
-          // ถ้ายังไม่ได้ Login ให้ redirect ไปหน้า Login ของ LINE
-          liff.login();
-        } else {
-          // ถ้า Login แล้ว ดึงข้อมูลโปรไฟล์
-          const profile = await liff.getProfile();
-          setLiffProfile(profile);
-        }
-      } catch (err) {
-        console.error("LIFF initialization failed", err);
-        setError("Failed to initialize LIFF or get profile.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeLiff();
-  }, []); // [] หมายความว่า useEffect จะรันแค่ครั้งเดียวเมื่อ Component Mount
-
-  if (isLoading) {
-    return (
-      <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-        <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-          <p>Loading LIFF...</p>
-        </main>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-        <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-          <p className="text-red-500">Error: {error}</p>
-          <p>Please ensure your LIFF ID is correct and the app is opened within LINE.</p>
-        </main>
-      </div>
-    );
-  }
-
-  return (
-    <div className="font-sans grid grid-rows-[auto_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      {liffProfile && (
-        <div className="w-full bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-md flex items-center gap-4">
-          {liffProfile.pictureUrl && (
-           <img
-             src={liffProfile.pictureUrl}
-               width={50}
-               height={50}
-               alt="Profile picture"
-               className="rounded-full"
-             />
-          )}
-          <div>
-            <p className="text-lg font-bold">ชื่อ: {liffProfile.displayName}</p>
-            <p className="text-sm text-gray-600 dark:text-gray-300">LINE ID: {liffProfile.userId}</p>
-            {liffProfile.statusMessage && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">Status: {liffProfile.statusMessage}</p>
-            )}
-          </div>
-          {/* ปุ่ม Logout (ไม่บังคับ แต่มีไว้ดีกว่า) */}
-          <button
-            onClick={() => liff.logout()}
-            className="ml-auto bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full text-sm"
-          >
-            Logout
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-// v.1.1.7 =================================================================================================================
-
 // v.1.1.6 scan qr code ====================================================================================================
 // app/page.tsx
-// 'use client'
+'use client'
 
-// import { useEffect, useRef, useState } from 'react'
-// import { Html5Qrcode } from 'html5-qrcode'
+import { useEffect, useRef, useState } from 'react'
+import { Html5Qrcode } from 'html5-qrcode'
 
-// export default function QRScannerPage() {
-//   const [scannedResult, setScannedResult] = useState<string | null>(null)
-//   const [error, setError] = useState<string | null>(null)
-//   const scannerRef = useRef<Html5Qrcode | null>(null)
-//   const qrRegionId = 'qr-reader'
+export default function QRScannerPage() {
+  const [scannedResult, setScannedResult] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const scannerRef = useRef<Html5Qrcode | null>(null)
+  const qrRegionId = 'qr-reader'
 
-//   const startScan = async () => {
-//     try {
-//       const config = { fps: 10, qrbox: 250 }
+  const startScan = async () => {
+    try {
+      const config = { fps: 10, qrbox: 250 }
 
-//       const qrCodeSuccessCallback = (decodedText: string) => {
-//         setScannedResult(decodedText)
-//         stopScan()
-//       }
+      const qrCodeSuccessCallback = (decodedText: string) => {
+        setScannedResult(decodedText)
+        stopScan()
+      }
 
-//       const qrCodeErrorCallback = (errorMessage: string) => {
-//         // สำหรับ debug: ไม่แนะนำให้ setError ทุกครั้ง
-//         console.warn('QR Error:', errorMessage)
-//       }
+      const qrCodeErrorCallback = (errorMessage: string) => {
+        // สำหรับ debug: ไม่แนะนำให้ setError ทุกครั้ง
+        console.warn('QR Error:', errorMessage)
+      }
 
-//       scannerRef.current = new Html5Qrcode(qrRegionId)
-//       await scannerRef.current.start(
-//         { facingMode: 'environment' },
-//         config,
-//         qrCodeSuccessCallback,
-//         qrCodeErrorCallback
-//       )
-//     } catch (err: unknown) {
-//       console.error(err)
-//       setError('ไม่สามารถเปิดกล้องได้ หรือไม่พบกล้องในอุปกรณ์')
-//     }
-//   }
+      scannerRef.current = new Html5Qrcode(qrRegionId)
+      await scannerRef.current.start(
+        { facingMode: 'environment' },
+        config,
+        qrCodeSuccessCallback,
+        qrCodeErrorCallback
+      )
+    } catch (err: unknown) {
+      console.error(err)
+      setError('ไม่สามารถเปิดกล้องได้ หรือไม่พบกล้องในอุปกรณ์')
+    }
+  }
 
-//   const stopScan = () => {
-//     scannerRef.current?.stop().then(() => {
-//       scannerRef.current?.clear()
-//     }).catch((err) => {
-//       console.error('หยุดกล้องล้มเหลว', err)
-//     })
-//   }
+  const stopScan = () => {
+    scannerRef.current?.stop().then(() => {
+      scannerRef.current?.clear()
+    }).catch((err) => {
+      console.error('หยุดกล้องล้มเหลว', err)
+    })
+  }
 
-//   useEffect(() => {
-//     return () => {
-//       stopScan()
-//     }
-//   }, [])
+  useEffect(() => {
+    return () => {
+      stopScan()
+    }
+  }, [])
 
-//   return (
-//     <main style={{ padding: '1rem', textAlign: 'center' }}>
-//       <h1>📷 สแกน QR Code (Next.js + html5-qrcode)</h1>
+  return (
+    <main style={{ padding: '1rem', textAlign: 'center' }}>
+      <h1>📷 สแกน QR Code (Next.js + html5-qrcode)</h1>
 
-//       {scannedResult ? (
-//         <div style={{ marginTop: '1rem' }}>
-//           <h2>✅ สแกนสำเร็จ:</h2>
-//           <p style={{ wordBreak: 'break-all', color: 'green' }}>{scannedResult}</p>
-//           <button onClick={() => { setScannedResult(null); startScan(); }}>
-//             🔄 สแกนใหม่
-//           </button>
-//         </div>
-//       ) : (
-//         <>
-//           <div id={qrRegionId} style={{
-//             width: '100%',
-//             maxWidth: '400px',
-//             margin: '0 auto',
-//             padding: '1rem',
-//             border: '1px solid #ccc',
-//             borderRadius: '8px'
-//           }} />
-//           <button onClick={startScan} style={{
-//             marginTop: '1rem',
-//             padding: '0.5rem 1.5rem',
-//             fontSize: '1.1rem',
-//             borderRadius: '8px',
-//             backgroundColor: '#00B900',
-//             color: 'white',
-//             border: 'none',
-//             cursor: 'pointer'
-//           }}>
-//             ▶️ เริ่มสแกน
-//           </button>
-//         </>
-//       )}
+      {scannedResult ? (
+        <div style={{ marginTop: '1rem' }}>
+          <h2>✅ สแกนสำเร็จ:</h2>
+          <p style={{ wordBreak: 'break-all', color: 'green' }}>{scannedResult}</p>
+          <button onClick={() => { setScannedResult(null); startScan(); }}>
+            🔄 สแกนใหม่
+          </button>
+        </div>
+      ) : (
+        <>
+          <div id={qrRegionId} style={{
+            width: '100%',
+            maxWidth: '400px',
+            margin: '0 auto',
+            padding: '1rem',
+            border: '1px solid #ccc',
+            borderRadius: '8px'
+          }} />
+          <button onClick={startScan} style={{
+            marginTop: '1rem',
+            padding: '0.5rem 1.5rem',
+            fontSize: '1.1rem',
+            borderRadius: '8px',
+            backgroundColor: '#00B900',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer'
+          }}>
+            ▶️ เริ่มสแกน
+          </button>
+        </>
+      )}
 
-//       {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
-//     </main>
-//   )
-// }
+      {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
+    </main>
+  )
+}
 
 // v.1.1.6 scan qr code ====================================================================================================
 
